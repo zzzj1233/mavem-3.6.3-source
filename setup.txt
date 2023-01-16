@@ -1,0 +1,2 @@
+
+-Dclassworlds.conf=G:\devTools\apache-maven-3.6.3\bin\m2.conf -Dmaven.home=G:\devTools\apache-maven-3.6.3 -Dmaven.conf=G:\devTools\apache-maven-3.6.3\conf -Dclassworlds.conf=G:\devTools\apache-maven-3.6.3\bin\m2.conf -Dmaven.multiModuleProjectDirectory=GH:\easyview\goldhorse-project -Duser.dir=H:\easyview\goldhorse-project
