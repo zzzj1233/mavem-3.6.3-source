@@ -446,6 +446,7 @@ public class DefaultProjectBuilder
 
         for ( File pomFile : pomFiles )
         {
+            // 用于判断是否循环引用, build方法是一个深度优先遍历的过程
             aggregatorFiles.add( pomFile );
 
             if ( !build( results, interimResults, projectIndex, pomFile, aggregatorFiles, isRoot, recursive, config ) )
@@ -515,7 +516,7 @@ public class DefaultProjectBuilder
         Model model = result.getEffectiveModel();
         try
         {
-            // first pass: build without building parent.
+            // 第一次调用这个方法, 第三个参数 { buildParentIfNotExisting = false }
             initProject( mavenProject, projectIndex, false, result, new HashMap<File, Boolean>( 0 ), config.request );
         }
         catch ( InvalidArtifactRTException iarte )
@@ -529,6 +530,8 @@ public class DefaultProjectBuilder
         InterimResult interimResult = new InterimResult( pomFile, request, result, listener, isRoot );
         interimResults.add( interimResult );
 
+        // recursive                       默认true, 代表需要递归解析子项目
+        // !model.getModules().isEmpty()   表示当前项目还有子modules
         if ( recursive && !model.getModules().isEmpty() )
         {
             File basedir = pomFile.getParentFile();
@@ -718,9 +721,12 @@ public class DefaultProjectBuilder
     }
 
     @SuppressWarnings( "checkstyle:methodlength" )
-    private void initProject( MavenProject project, Map<String, MavenProject> projects,
-                              boolean buildParentIfNotExisting, ModelBuildingResult result,
-                              Map<File, Boolean> profilesXmls, ProjectBuildingRequest projectBuildingRequest )
+    private void initProject( MavenProject project,
+                              Map<String, MavenProject> projects,
+                              boolean buildParentIfNotExisting,
+                              ModelBuildingResult result,
+                              Map<File, Boolean> profilesXmls,
+                              ProjectBuildingRequest projectBuildingRequest)
     {
         Model model = result.getEffectiveModel();
 
@@ -730,6 +736,7 @@ public class DefaultProjectBuilder
 
         initParent( project, projects, buildParentIfNotExisting, result, projectBuildingRequest );
 
+        // 1. 获取当前project的GAV,将GAV转换为Artifact对象,赋值给project
         Artifact projectArtifact =
             repositorySystem.createArtifact( project.getGroupId(), project.getArtifactId(), project.getVersion(), null,
                                              project.getPackaging() );
@@ -743,11 +750,18 @@ public class DefaultProjectBuilder
             project.addTestCompileSourceRoot( build.getTestSourceDirectory() );
         }
 
+        // 2. 将activeProfiles赋值给project
         List<Profile> activeProfiles = new ArrayList<>();
+
+        // 2.1 在pom.xml中声明的profile
         activeProfiles.addAll( result.getActivePomProfiles( result.getModelIds().get( 0 ) ) );
+        // 2.2 通过命令行指定的profile
         activeProfiles.addAll( result.getActiveExternalProfiles() );
+
+        // 2.3 赋值
         project.setActiveProfiles( activeProfiles );
 
+        // ignore这块
         project.setInjectedProfileIds( "external", getProfileIds( result.getActiveExternalProfiles() ) );
         for ( String modelId : result.getModelIds() )
         {
@@ -770,10 +784,11 @@ public class DefaultProjectBuilder
 
         project.setProjectBuildingRequest( projectBuildingRequest );
 
-        // pluginArtifacts
+        // 3. pom.xml中定义的所有plugins
         Set<Artifact> pluginArtifacts = new HashSet<>();
         for ( Plugin plugin : project.getBuildPlugins() )
         {
+            // 通过GAV创建Artifact对象, 赋值给project对象
             Artifact artifact = repositorySystem.createPluginArtifact( plugin );
 
             if ( artifact != null )
@@ -783,7 +798,7 @@ public class DefaultProjectBuilder
         }
         project.setPluginArtifacts( pluginArtifacts );
 
-        // reportArtifacts
+        // 4. pom.xml中定义的所有reports
         Set<Artifact> reportArtifacts = new HashSet<>();
         for ( ReportPlugin report : project.getReportPlugins() )
         {
@@ -799,9 +814,10 @@ public class DefaultProjectBuilder
                 reportArtifacts.add( artifact );
             }
         }
+        // 通过GAV创建Artifact对象, 赋值给project对象
         project.setReportArtifacts( reportArtifacts );
 
-        // extensionArtifacts
+        // 5. pom.xml中定义的所有build.extensions
         Set<Artifact> extensionArtifacts = new HashSet<>();
         List<Extension> extensions = project.getBuildExtensions();
         if ( extensions != null )
@@ -827,16 +843,18 @@ public class DefaultProjectBuilder
                 }
             }
         }
+        // 通过GAV创建Artifact对象, 赋值给project对象
         project.setExtensionArtifacts( extensionArtifacts );
 
-        // managedVersionMap
         Map<String, Artifact> map = null;
         if ( repositorySystem != null )
         {
+            // 6. pom.xml中定义的所有dependencyManagement
             final DependencyManagement dependencyManagement = project.getDependencyManagement();
             if ( ( dependencyManagement != null ) && ( ( dependencyManagement.getDependencies() ) != null )
                 && ( dependencyManagement.getDependencies().size() > 0 ) )
             {
+                // 这个map是为了懒加载
                 map = new AbstractMap<String, Artifact>()
                 {
                     HashMap<String, Artifact> delegate;
@@ -902,9 +920,11 @@ public class DefaultProjectBuilder
                 map = Collections.emptyMap();
             }
         }
+
+        // 赋值给 project#managedVersionMap
         project.setManagedVersionMap( map );
 
-        // release artifact repository
+        // 7. release artifact repository
         if ( project.getDistributionManagement() != null
                         && project.getDistributionManagement().getRepository() != null )
         {
@@ -918,6 +938,8 @@ public class DefaultProjectBuilder
                                                   Arrays.asList( repo ) );
                     repositorySystem.injectAuthentication( projectBuildingRequest.getRepositorySession(),
                                                            Arrays.asList( repo ) );
+
+                    // 赋值给project对象
                     project.setReleaseArtifactRepository( repo );
                 }
             }
@@ -928,7 +950,7 @@ public class DefaultProjectBuilder
             }
         }
 
-        // snapshot artifact repository
+        // 8. snapshot artifact repository
         if ( project.getDistributionManagement() != null
             && project.getDistributionManagement().getSnapshotRepository() != null )
         {
@@ -942,6 +964,8 @@ public class DefaultProjectBuilder
                                                   Arrays.asList( repo ) );
                     repositorySystem.injectAuthentication( projectBuildingRequest.getRepositorySession(),
                                                            Arrays.asList( repo ) );
+
+                    // 赋值给project对象
                     project.setSnapshotArtifactRepository( repo );
                 }
             }

@@ -398,24 +398,7 @@ public class DefaultGraphBuilder
         // 2. 用于保存所有的project
         List<MavenProject> projects = new ArrayList<>();
 
-        // 3. ignore: 没有pom文件,那么使用standalone.xml
-        if ( request.getPom() == null )
-        {
-            ModelSource modelSource = new UrlModelSource( DefaultMaven.class.getResource( "project/standalone.xml" ) );
-
-
-            ProjectBuildingResult buildResult = projectBuilder.build(modelSource, request.getProjectBuildingRequest());
-
-            MavenProject project = buildResult.getProject();
-
-            project.setExecutionRoot( true );
-
-            projects.add( project );
-
-            request.setProjectPresent( false );
-
-            return projects;
-        }
+        // 3. ignore: 没有pom文件,那么使用standalone.xml (影响阅读: 代码已经删除)
 
         // 4. 有pom文件
         List<File> files = Arrays.asList( request.getPom().getAbsoluteFile() );

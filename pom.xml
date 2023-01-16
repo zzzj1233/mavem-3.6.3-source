@@ -460,7 +460,6 @@ under the License.
     </dependency>
   </dependencies>
   <!--bootstrap-end-comment-->
-
   <build>
     <pluginManagement>
       <plugins>
@@ -645,7 +644,7 @@ under the License.
     </plugins>
   </build>
 
-  <profiles>
+    <profiles>
     <profile>
       <id>apache-release</id>
       <build>
